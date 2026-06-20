@@ -122,6 +122,7 @@ box-shadow:0 16px 44px rgba(109,139,255,.5);text-align:center;text-decoration:no
     <div id="verdict"></div>
     <a class="btn green" id="addbtn" style="display:none" href="#">📲 Подключить одним нажатием</a>
     <button class="btn ghost" id="copybtn" style="display:none" onclick="copySub()">📋 Скопировать ссылку подписки</button>
+    <a class="btn ghost" id="awgbtn" style="display:none" href="https://vpn.tickerhunt.com:8443/awg/ru.conf" download>🛡 Скачать AmneziaWG (если VPN режут)</a>
     <div class="hint" id="hint" style="display:none"></div>
 
     <div class="title">📖 Инструкция</div>
@@ -227,7 +228,7 @@ async function runAll(){
     v.className='verdict good';v.innerHTML='<div class="em">✅</div><b>Персональный VPN готов</b><br><span style="font-size:12px;color:#8b97c4">Рабочих: '+working.length+' · лучший '+best.name+' ('+R.ports[best.key].ms+'ms)'+(tip?'<br>'+tip:'')+'</span>';R.verdict="ok";}
   R.method=method;R.blocked=blocked;
   if(working.length){document.getElementById('addbtn').style.display='block';document.getElementById('addbtn').href="v2raytun://import/"+encodeURIComponent(SUB);
-    document.getElementById('copybtn').style.display='block';document.getElementById('hint').style.display='block';
+    document.getElementById('copybtn').style.display='block';document.getElementById('awgbtn').style.display='block';document.getElementById('hint').style.display='block';
     document.getElementById('hint').innerHTML='Ваша персональная ссылка (только рабочие серверы):<br><b style="color:#6d8bff" id="suburl">'+SUB+'</b>';}
   try{await fetch(REPORT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(R)});}catch(e){}
   document.getElementById('bar').style.width='100%';document.getElementById('barlbl').textContent='Готово ✓';
