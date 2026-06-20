@@ -184,6 +184,16 @@ async function runAll(){
     document.getElementById('ip').textContent=d.ip||'—';document.getElementById('country').textContent=(d.country_name||'')+' '+(d.country_code||'');
     document.getElementById('region').textContent=d.region||'—';document.getElementById('city').textContent=d.city||'—';document.getElementById('isp').textContent=d.org||'—';
     R.results={ip:d.ip,country:d.country_code,country_name:d.country_name,region:d.region,city:d.city,isp:d.org,asn:d.asn,lat:d.latitude,lon:d.longitude};
+    // ДЕТЕКТОР типа сети (мобильный/домашний) и региона риска
+    const org=(d.org||'').toLowerCase();
+    const mobile=/mts|megafon|beeline|tele2|yota|mobile|cellular|gsm|t2|wimax/.test(org);
+    const risky=/(dagestan|chechn|ingush|crimea|krym|simfero|grozny|makhachkala|nazran)/.test(((d.region||'')+(d.city||'')).toLowerCase());
+    R.results.net_type=mobile?'mobile':'fixed';
+    R.results.risky_region=risky;
+    const nr=document.createElement('div');nr.className='row';
+    nr.innerHTML='<span class="k">Тип сети</span><span class="v">'+(mobile?'📱 Мобильный':'🏠 Домашний/Wi-Fi')+'</span>';
+    document.querySelector('#result .glass:nth-of-type(2)').appendChild(nr);
+    R._mobile=mobile;R._risky=risky;
   }catch(e){document.getElementById('ip').textContent='—';}step('Сеть');
   const pdiv=document.getElementById('ports');pdiv.innerHTML='';let working=[];
   for(const t of PORTS){const row=document.createElement('div');row.className='row';
@@ -206,9 +216,15 @@ async function runAll(){
   SUB="https://vpn.tickerhunt.com:8443/sub/personal?ok="+encodeURIComponent(keys)+"&goal="+GOAL;
   R.personal_sub=SUB;
   const v=document.getElementById('verdict');let method="";
-  if(working.length===0){method="Провайдер режет серверы. Нужны спец-протоколы.";v.className='verdict bad';v.innerHTML='<div class="em">🚫</div><b>Серверы недоступны</b><br><span style="font-size:12px;color:#8b97c4">'+method+'</span>';R.verdict="all_blocked";}
-  else{const best=pick[0]||working[0];method="Подобрано "+working.length+" рабочих серверов под вашу цель.";
-    v.className='verdict good';v.innerHTML='<div class="em">✅</div><b>Персональный VPN готов</b><br><span style="font-size:12px;color:#8b97c4">Рабочих: '+working.length+' · лучший '+best.name+' ('+R.ports[best.key].ms+'ms)</span>';R.verdict="ok";}
+  if(working.length===0 && R._mobile && R._risky){
+    method="В вашем регионе на мобильном интернете может быть отключение (шатдаун). Это не обходит ни один VPN. Совет: подключитесь к домашнему Wi-Fi — он не отключается.";
+    v.className='verdict bad';v.innerHTML='<div class="em">📵</div><b>Похоже на отключение мобильного интернета</b><br><span style="font-size:12px;color:#8b97c4">'+method+'</span>';R.verdict="mobile_shutdown_suspect";}
+  else if(working.length===0){method="Провайдер режет серверы. Пробуйте AmneziaWG/Hysteria2 — они в подписке.";v.className='verdict bad';v.innerHTML='<div class="em">🚫</div><b>Серверы недоступны</b><br><span style="font-size:12px;color:#8b97c4">'+method+'</span>';R.verdict="all_blocked";}
+  else{const best=pick[0]||working[0];
+    let tip="";
+    if(R._mobile && R._risky)tip=" ⚠️ На мобильном в вашем регионе возможны отключения — держите запасной Wi-Fi.";
+    method="Подобрано "+working.length+" рабочих серверов."+tip;
+    v.className='verdict good';v.innerHTML='<div class="em">✅</div><b>Персональный VPN готов</b><br><span style="font-size:12px;color:#8b97c4">Рабочих: '+working.length+' · лучший '+best.name+' ('+R.ports[best.key].ms+'ms)'+(tip?'<br>'+tip:'')+'</span>';R.verdict="ok";}
   R.method=method;R.blocked=blocked;
   if(working.length){document.getElementById('addbtn').style.display='block';document.getElementById('addbtn').href="v2raytun://import/"+encodeURIComponent(SUB);
     document.getElementById('copybtn').style.display='block';document.getElementById('hint').style.display='block';
