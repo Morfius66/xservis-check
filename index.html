@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xservis — Диагностика и подбор VPN</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+background:#0a0e1a;color:#eaf0ff;padding:18px;line-height:1.5;}
+body::before{content:"";position:fixed;inset:0;z-index:-1;
+background:radial-gradient(800px 500px at 80% -10%,rgba(124,92,255,.2),transparent 60%),#0a0e1a;}
+.wrap{max-width:480px;margin:0 auto;}
+h1{font-size:22px;font-weight:800;margin:14px 0 4px;text-align:center;}
+.sub{text-align:center;color:#8a96b8;font-size:13px;margin-bottom:18px;}
+.card{background:#121829;border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:14px;margin-bottom:10px;}
+.row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px;gap:10px;}
+.row:last-child{border:none;}.row .k{color:#8a96b8;flex-shrink:0;}.row .v{font-weight:600;text-align:right;word-break:break-word;}
+.ok{color:#34d399;}.bad{color:#ff5a5a;}.wait{color:#fbbf24;}
+.btn{display:block;width:100%;padding:15px;border:none;border-radius:14px;font-size:16px;font-weight:700;
+color:#fff;background:linear-gradient(135deg,#5b8cff,#7c5cff);cursor:pointer;margin:12px 0;
+box-shadow:0 12px 30px rgba(91,140,255,.4);text-align:center;text-decoration:none;}
+.btn:active{transform:scale(.98);}.btn:disabled{opacity:.5;}
+.btn.green{background:linear-gradient(135deg,#34d399,#10b981);box-shadow:0 12px 30px rgba(52,211,153,.4);}
+.title{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#8a96b8;margin:16px 6px 6px;font-weight:700;}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#5b8cff;border-radius:50%;animation:s .8s linear infinite;}
+@keyframes s{to{transform:rotate(360deg)}}
+.result{display:none;}.result.show{display:block;}
+.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+.pill.ok{background:rgba(52,211,153,.15);color:#34d399;}.pill.bad{background:rgba(255,90,90,.15);color:#ff5a5a;}
+.verdict{text-align:center;padding:16px;border-radius:14px;margin:10px 0;}
+.verdict.good{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);}
+.verdict.warn{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);}
+.verdict.bad{background:rgba(255,90,90,.1);border:1px solid rgba(255,90,90,.3);}
+.hint{background:#1a2238;border:1px dashed rgba(91,140,255,.4);border-radius:12px;padding:11px;font-size:12px;color:#a9c0ff;margin-top:8px;word-break:break-all;}
+.logo{width:64px;height:64px;margin:6px auto 10px;border-radius:18px;background:linear-gradient(135deg,#5b8cff,#7c5cff);display:flex;align-items:center;justify-content:center;font-size:32px;box-shadow:0 14px 34px rgba(124,92,255,.4);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">⚡</div>
+  <h1>Диагностика и подбор VPN</h1>
+  <div class="sub">Определим вашу сеть, найдём блокировки и подберём конфигурацию, которая работает именно у вас</div>
+
+  <button class="btn" id="run" onclick="runAll()">🔍 Запустить полную диагностику</button>
+
+  <div class="result" id="result">
+    <div class="title">📱 Ваше устройство</div>
+    <div class="card">
+      <div class="row"><span class="k">Устройство</span><span class="v" id="dev">—</span></div>
+      <div class="row"><span class="k">Система</span><span class="v" id="os">—</span></div>
+      <div class="row"><span class="k">Браузер</span><span class="v" id="br">—</span></div>
+      <div class="row"><span class="k">Экран</span><span class="v" id="scr">—</span></div>
+      <div class="row"><span class="k">Язык</span><span class="v" id="lang">—</span></div>
+    </div>
+
+    <div class="title">🌍 Ваша сеть и местоположение</div>
+    <div class="card">
+      <div class="row"><span class="k">IP-адрес</span><span class="v" id="ip">—</span></div>
+      <div class="row"><span class="k">Страна</span><span class="v" id="country">—</span></div>
+      <div class="row"><span class="k">Регион</span><span class="v" id="region">—</span></div>
+      <div class="row"><span class="k">Город</span><span class="v" id="city">—</span></div>
+      <div class="row"><span class="k">Провайдер</span><span class="v" id="isp">—</span></div>
+      <div class="row"><span class="k">Координаты</span><span class="v" id="loc">—</span></div>
+    </div>
+
+    <div class="title">📡 Проверка серверов (что доступно у вас)</div>
+    <div class="card" id="ports"></div>
+
+    <div class="title">🚫 Что заблокировано в вашей сети</div>
+    <div class="card" id="svc"></div>
+
+    <div class="title">🎯 Результат</div>
+    <div id="verdict"></div>
+    <a class="btn green" id="addbtn" style="display:none" href="#">📲 Подключить рабочий VPN</a>
+    <div class="hint" id="hint" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+const DE="78.17.104.147", RU="157.22.253.53";
+const REPORT="https://vpn.tickerhunt.com:8443/diag/report";
+const SUB="https://vpn.tickerhunt.com:8443/sub/aima-simple";
+
+const PORTS=[
+  {h:DE,p:443,name:"DE REALITY 443",key:"de443"},
+  {h:DE,p:2053,name:"DE Vision 2053",key:"de2053"},
+  {h:DE,p:2083,name:"DE gRPC 2083",key:"de2083"},
+  {h:RU,p:443,name:"RU REALITY 443",key:"ru443"},
+  {h:RU,p:2087,name:"RU 2087",key:"ru2087"},
+  {h:RU,p:10443,name:"RU 10443",key:"ru10443"},
+];
+const SVC=[
+  {name:"Instagram",url:"https://www.instagram.com/favicon.ico",key:"instagram"},
+  {name:"YouTube",url:"https://www.youtube.com/favicon.ico",key:"youtube"},
+  {name:"WhatsApp",url:"https://static.whatsapp.net/favicon.ico",key:"whatsapp"},
+  {name:"Telegram",url:"https://web.telegram.org/favicon.ico",key:"telegram"},
+  {name:"Gosuslugi",url:"https://www.gosuslugi.ru/favicon.ico",key:"gosuslugi"},
+  {name:"Google",url:"https://www.google.com/favicon.ico",key:"google"},
+];
+const R={ts:new Date().toISOString(),device:{},results:{},ports:{},services:{}};
+
+function detectDevice(){
+  const ua=navigator.userAgent;
+  let dev="PC",os="?",br="?";
+  if(/iPhone/.test(ua)){dev="iPhone";const m=ua.match(/OS (\d+[_\d]*)/);os="iOS "+(m?m[1].replace(/_/g,'.'):'');}
+  else if(/iPad/.test(ua)){dev="iPad";os="iPadOS";}
+  else if(/Android/.test(ua)){dev="Android";const m=ua.match(/Android (\d+[\.\d]*)/);os="Android "+(m?m[1]:'');}
+  else if(/Windows/.test(ua)){dev="PC";os="Windows";}
+  else if(/Mac/.test(ua)){dev="Mac";os="macOS";}
+  if(/CriOS|Chrome/.test(ua))br="Chrome";
+  else if(/Safari/.test(ua))br="Safari";
+  else if(/Firefox/.test(ua))br="Firefox";
+  document.getElementById('dev').textContent=dev;
+  document.getElementById('os').textContent=os;
+  document.getElementById('br').textContent=br;
+  document.getElementById('scr').textContent=screen.width+"x"+screen.height;
+  document.getElementById('lang').textContent=navigator.language||'?';
+  R.device={dev,os,br,screen:screen.width+"x"+screen.height,lang:navigator.language,ua};
+}
+
+function testPort(host,port,timeout=6000){
+  return new Promise(res=>{
+    const start=Date.now();const ctrl=new AbortController();
+    const t=setTimeout(()=>{ctrl.abort();res({ok:false,ms:timeout});},timeout);
+    fetch("https://"+host+":"+port+"/",{mode:'no-cors',signal:ctrl.signal,cache:'no-store'})
+      .then(()=>{clearTimeout(t);res({ok:true,ms:Date.now()-start});})
+      .catch(()=>{clearTimeout(t);const ms=Date.now()-start;res({ok:ms<timeout-500,ms});});
+  });
+}
+function checkSvc(url,timeout=7000){
+  return new Promise(res=>{
+    const ctrl=new AbortController();const t=setTimeout(()=>{ctrl.abort();res(false);},timeout);
+    fetch(url,{mode:'no-cors',signal:ctrl.signal,cache:'no-store'})
+      .then(()=>{clearTimeout(t);res(true);}).catch(()=>{clearTimeout(t);res(false);});
+  });
+}
+
+async function runAll(){
+  const rb=document.getElementById('run');
+  rb.disabled=true;rb.innerHTML='<span class="spin"></span> Идёт диагностика...';
+  document.getElementById('result').classList.add('show');
+
+  detectDevice();
+
+  try{
+    const d=await (await fetch('https://ipapi.co/json/',{cache:'no-store'})).json();
+    document.getElementById('ip').textContent=d.ip||'—';
+    document.getElementById('country').textContent=(d.country_name||'')+' '+(d.country_code||'');
+    document.getElementById('region').textContent=d.region||'—';
+    document.getElementById('city').textContent=d.city||'—';
+    document.getElementById('isp').textContent=d.org||'—';
+    document.getElementById('loc').textContent=(d.latitude&&d.longitude)?(d.latitude+', '+d.longitude):'—';
+    R.results={ip:d.ip,country:d.country_code,country_name:d.country_name,region:d.region,city:d.city,isp:d.org,asn:d.asn,lat:d.latitude,lon:d.longitude};
+  }catch(e){
+    try{const d2=await (await fetch('https://api.ipify.org?format=json')).json();
+      document.getElementById('ip').textContent=d2.ip;R.results.ip=d2.ip;}catch(e2){document.getElementById('ip').textContent='не определён';}
+  }
+
+  const pdiv=document.getElementById('ports');pdiv.innerHTML='';
+  let working=[];
+  for(const t of PORTS){
+    const row=document.createElement('div');row.className='row';
+    row.innerHTML='<span class="k">'+t.name+'</span><span class="v wait">...</span>';pdiv.appendChild(row);
+    const r=await testPort(t.h,t.p);R.ports[t.key]={ok:r.ok,ms:r.ms};
+    row.querySelector('.v').innerHTML=r.ok?'<span class="pill ok">OK '+r.ms+'ms</span>':'<span class="pill bad">блок</span>';
+    if(r.ok)working.push(t);
+  }
+
+  const sdiv=document.getElementById('svc');sdiv.innerHTML='';
+  let blocked=[];
+  for(const s of SVC){
+    const row=document.createElement('div');row.className='row';
+    row.innerHTML='<span class="k">'+s.name+'</span><span class="v wait">...</span>';sdiv.appendChild(row);
+    const ok=await checkSvc(s.url);R.services[s.key]=ok;
+    row.querySelector('.v').innerHTML=ok?'<span class="pill ok">открыт</span>':'<span class="pill bad">блок</span>';
+    if(!ok)blocked.push(s.name);
+  }
+
+  const v=document.getElementById('verdict');
+  let method="";
+  if(working.length===0){
+    method="Жёсткая блокировка: провайдер режет наши серверы по IP/портам. Нужны спец-протоколы (Hysteria/AmneziaWG) или CDN.";
+    v.className='verdict bad';v.innerHTML='<div style="font-size:30px">🚫</div><b>Все серверы заблокированы</b><br><span style="font-size:12px;color:#8a96b8">'+method+'</span>';
+    R.verdict="all_blocked";
+  }else if(blocked.length>=3){
+    method="DPI-блокировка сервисов у провайдера. VPN-серверы доступны — подключение решит проблему.";
+    v.className='verdict warn';v.innerHTML='<div style="font-size:30px">⚠️</div><b>Сервисы блокируются, но VPN доступен</b><br><span style="font-size:12px;color:#8a96b8">'+method+'</span>';
+    R.verdict="services_blocked_vpn_ok";
+  }else{
+    const best=working.sort((a,b)=>R.ports[a.key].ms-R.ports[b.key].ms)[0];
+    method="Блокировок мало. Доступно "+working.length+" серверов.";
+    v.className='verdict good';v.innerHTML='<div style="font-size:30px">✅</div><b>Найдено рабочих серверов: '+working.length+'</b><br><span style="font-size:12px;color:#8a96b8">Лучший: '+best.name+'</span>';
+    R.verdict="ok";
+  }
+  R.method=method;R.blocked=blocked;
+
+  if(working.length){
+    const ab=document.getElementById('addbtn');ab.style.display='block';
+    ab.href="v2raytun://import/"+encodeURIComponent(SUB);
+    document.getElementById('hint').style.display='block';
+    document.getElementById('hint').innerHTML='Если кнопка не открыла приложение — скопируйте ссылку и добавьте в v2RayTun или Hiddify вручную:<br><b style="color:#5b8cff">'+SUB+'</b>';
+  }
+
+  try{await fetch(REPORT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(R)});}catch(e){R.send_err=String(e);}
+
+  rb.innerHTML='✅ Готово — повторить';rb.disabled=false;
+}
+</script>
+</body>
+</html>
