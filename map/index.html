@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xservis — Карта блокировок России в реальном времени</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{--ac:#6d8bff;--ac2:#a060ff;--gr:#3ee594;--rd:#ff5d6c;--am:#ffc04d;}
+body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;color:#eef2ff;background:#04050b;min-height:100vh;padding:0 0 50px;}
+.bg{position:fixed;inset:0;z-index:-2;background:radial-gradient(ellipse at 50% 0%,#0c1024,#04050b 70%);}
+.blob{position:fixed;border-radius:50%;filter:blur(90px);opacity:.4;z-index:-1;}
+.b1{width:420px;height:420px;background:radial-gradient(circle,#6d8bff,transparent 70%);top:-120px;right:-100px;}
+.b2{width:380px;height:380px;background:radial-gradient(circle,#ff5d6c,transparent 70%);bottom:-100px;left:-120px;}
+.wrap{max-width:560px;margin:0 auto;padding:28px 18px;}
+.hero{text-align:center;padding:14px 0 22px;}
+.live{display:inline-flex;align-items:center;gap:7px;background:rgba(255,93,108,.15);border:1px solid rgba(255,93,108,.3);border-radius:30px;padding:5px 14px;font-size:12px;font-weight:700;color:var(--rd);margin-bottom:14px;}
+.live .dot{width:8px;height:8px;border-radius:50%;background:var(--rd);animation:bl 1.2s infinite;}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:.3}}
+h1{font-size:25px;font-weight:800;letter-spacing:-.5px;background:linear-gradient(135deg,#fff,#aebfff);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.sub{color:#8b97c4;font-size:13px;margin-top:8px;}
+.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:18px 0;}
+.stat{background:linear-gradient(135deg,rgba(255,255,255,.07),rgba(255,255,255,.02));backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:14px 8px;text-align:center;}
+.stat .num{font-size:24px;font-weight:800;background:linear-gradient(135deg,var(--ac),var(--gr));-webkit-background-clip:text;background-clip:text;color:transparent;}
+.stat .lbl{font-size:11px;color:#8b97c4;margin-top:3px;}
+.title{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:#6d8bff;margin:20px 6px 10px;font-weight:800;}
+.reg{background:linear-gradient(135deg,rgba(255,255,255,.06),rgba(255,255,255,.02));backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.09);border-radius:18px;padding:14px;margin-bottom:10px;}
+.reg-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.reg-h .name{font-weight:800;font-size:15px;}
+.reg-h .cnt{font-size:11px;color:#8b97c4;}
+.reg .isp{font-size:12px;color:#8b97c4;margin-bottom:8px;}
+.tags{display:flex;flex-wrap:wrap;gap:6px;}
+.tag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:rgba(255,93,108,.15);color:var(--rd);}
+.tag.ok{background:rgba(62,229,148,.15);color:var(--gr);}
+.net{display:inline-block;font-size:10px;padding:2px 8px;border-radius:12px;background:rgba(109,139,255,.15);color:var(--ac);margin-left:6px;}
+.empty{text-align:center;color:#8b97c4;padding:30px;font-size:14px;}
+.foot{text-align:center;color:#5a6488;font-size:11px;margin-top:24px;}
+.cta{display:block;width:100%;padding:16px;border:none;border-radius:16px;font-size:15px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--ac),var(--ac2));margin:20px 0 0;box-shadow:0 14px 36px rgba(109,139,255,.4);text-align:center;text-decoration:none;}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:var(--ac);border-radius:50%;animation:sp .7s linear infinite;}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="bg"></div><div class="blob b1"></div><div class="blob b2"></div>
+<div class="wrap">
+  <div class="hero">
+    <div class="live"><span class="dot"></span>LIVE · обновляется в реальном времени</div>
+    <h1>🗺 Карта блокировок России</h1>
+    <div class="sub">Реальные данные от пользователей Xservis: где, какой провайдер и что блокирует прямо сейчас</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="num" id="s-reg">—</div><div class="lbl">регионов</div></div>
+    <div class="stat"><div class="num" id="s-chk">—</div><div class="lbl">проверок</div></div>
+    <div class="stat"><div class="num" id="s-blk">—</div><div class="lbl">блокировок</div></div>
+  </div>
+
+  <div class="title">📍 Регионы (по числу проверок)</div>
+  <div id="regions"><div class="empty"><span class="spin"></span><br><br>Загружаю реальные данные...</div></div>
+
+  <a class="cta" href="/">⚡ Проверить свою сеть и подобрать VPN</a>
+  <div class="foot" id="upd">Данные собираются от пользователей · Xservis © 2026</div>
+</div>
+
+<script>
+const API="https://vpn.tickerhunt.com:8443/api/blockmap";
+const SVCNAME={instagram:"Instagram",youtube:"YouTube",whatsapp:"WhatsApp",telegram:"Telegram",gosuslugi:"Госуслуги",google:"Google"};
+async function load(){
+  try{
+    const d=await (await fetch(API,{cache:'no-store'})).json();
+    document.getElementById('s-reg').textContent=d.regions?.length||0;
+    document.getElementById('s-chk').textContent=d.total||0;
+    let totalBlocks=0;(d.regions||[]).forEach(r=>totalBlocks+=Object.keys(r.blocked||{}).length);
+    document.getElementById('s-blk').textContent=totalBlocks;
+    if(d.updated)document.getElementById('upd').textContent='Обновлено: '+d.updated+' · Xservis © 2026';
+    const box=document.getElementById('regions');
+    if(!d.regions||!d.regions.length){box.innerHTML='<div class="empty">Пока нет данных. Будьте первым — проверьте свою сеть на главной странице!</div>';return;}
+    box.innerHTML='';
+    d.regions.forEach(r=>{
+      const blk=Object.entries(r.blocked||{}).sort((a,b)=>b[1]-a[1]);
+      const net=r.mobile>r.fixed?'📱 чаще мобильный':(r.fixed>0?'🏠 чаще домашний':'');
+      let tags='';
+      if(blk.length){blk.forEach(([k,v])=>{tags+='<span class="tag">'+(SVCNAME[k]||k)+' ✕</span>';});}
+      else{tags='<span class="tag ok">всё доступно ✓</span>';}
+      const div=document.createElement('div');div.className='reg';
+      div.innerHTML='<div class="reg-h"><span class="name">'+r.region+(net?'<span class="net">'+net+'</span>':'')+'</span><span class="cnt">'+r.total+' проверок</span></div>'+
+        '<div class="isp">'+r.isp+'</div><div class="tags">'+tags+'</div>';
+      box.appendChild(div);
+    });
+  }catch(e){
+    document.getElementById('regions').innerHTML='<div class="empty">Не удалось загрузить данные. Обновите страницу.</div>';
+  }
+}
+load();setInterval(load,15000);
+</script>
+</body>
+</html>
